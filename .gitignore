@@ -1,0 +1,18 @@
+# simulation
+tb/sim_build*/
+tb/results.xml
+*.vcd
+*.fst
+__pycache__/
+
+# vivado
+vivado/out/
+.Xil/
+*.jou
+*.log
+!docs/results/*.log
+vendor/
+
+# data
+*.itch
+*.gz
