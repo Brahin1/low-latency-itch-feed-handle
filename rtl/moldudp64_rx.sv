@@ -14,6 +14,10 @@
 //                                          consume them silently, count them
 // Duplicate detection is done once per packet: dup_left = expected - seq, then
 // a 17-bit down-counter per message, instead of a 64-bit compare per message.
+//
+// Speculation: expected-sequence state advances as messages stream through
+// (cut-through), but is only *committed* on a good frame verdict. A frame that
+// fails its FCS rolls the state back to the last committed value.
 // -----------------------------------------------------------------------------
 module moldudp64_rx (
   input  logic        clk,
@@ -50,8 +54,8 @@ module moldudp64_rx (
   logic [63:0] pkt_seq, cur_seq;
   logic [7:0]  cnt_hi, len_hi;
   logic [15:0] msg_left, mlen, mcnt;
-  logic [63:0] exp_seq;
-  logic        seq_ok;
+  logic [63:0] exp_seq, exp_seq_c;
+  logic        seq_ok, seq_ok_c;
   logic        seq_gt;
   logic [63:0] diff;
   logic [16:0] dup_left;
@@ -75,7 +79,9 @@ module moldudp64_rx (
       st        <= S_HDR;
       hcnt      <= '0;
       seq_ok    <= 1'b0;
+      seq_ok_c  <= 1'b0;
       exp_seq   <= '0;
+      exp_seq_c <= '0;
       o_done    <= 1'b0;
     end else begin
       if (p_valid) begin
@@ -155,10 +161,19 @@ module moldudp64_rx (
         if (p_last && !(st == S_MSG && mcnt == mlen - 16'd1)) st <= S_DRAIN;
       end
 
-      // End of frame: next payload starts a new packet header.
-      if (f_done) st <= S_HDR;
+      // Late verdict: commit or roll back the speculative sequence state.
+      if (f_done) begin
+        st <= S_HDR;
+        if (f_ok) begin
+          exp_seq_c <= exp_seq;
+          seq_ok_c  <= seq_ok;
+        end else begin
+          exp_seq   <= exp_seq_c;
+          seq_ok    <= seq_ok_c;
+        end
+      end
     end
   end
 
-  assign exp_seq_o = exp_seq;
+  assign exp_seq_o = exp_seq_c;
 endmodule
