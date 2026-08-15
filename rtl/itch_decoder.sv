@@ -4,18 +4,31 @@
 // Datapath
 //   1. Capture: each message byte is written into a 48-byte array at its
 //      offset (a 48-way write decoder, no shifting).
-//   2. Decode: one cycle after the last byte, every field is a fixed slice of
+//   2. Early filter: the Stock Locate (bytes 1-2) is known at byte 2, so the
+//      watchlist compare is resolved and registered ~20-40 cycles before the
+//      message ends. It is off the end-of-message path entirely.
+//   3. Decode: one cycle after the last byte, every field is a fixed slice of
 //      the array; a per-type mux selects which slice feeds each output.
-//   3. Output register: record valid 2 cycles after the last message byte.
+//   4. Output register: record valid 2 cycles after the last message byte.
 //
-// Supported record types: A F E C X D (order flow).
-// Also consumed: R (stock directory), S (system event). Anything else is
-// counted and skipped using the MoldUDP64 length, so unknown types never
-// desynchronise.
+// Watchlist learning
+//   ITCH order messages (E, X, D, U...) carry no symbol, only the 16-bit Stock
+//   Locate. The locate for each symbol is announced once per day in the Stock
+//   Directory ('R') message. When an 'R' arrives whose symbol matches a
+//   configured watch slot, the slot learns that locate. After that every
+//   message is filtered by a 4 x 16-bit locate compare.
+//
+// Supported record types: A F E C X D U P (order and trade flow).
+// Also consumed: R (learning), S (system event). Anything else is counted and
+// skipped using the MoldUDP64 length, so unknown types never desynchronise.
 // -----------------------------------------------------------------------------
 module itch_decoder (
   input  logic         clk,
   input  logic         rst,
+  input  logic         cfg_pass_all,
+  input  logic         cfg_relearn,        // pulse: forget learned locates
+  input  logic [3:0]   cfg_watch_en,
+  input  logic [255:0] cfg_watch_sym,      // slot i = [64*i +: 64], 8 ASCII bytes, space padded
   // message stream (from moldudp64_rx)
   input  logic         m_valid,
   input  logic [7:0]   m_data,
@@ -25,6 +38,9 @@ module itch_decoder (
   input  logic         f_done,
   input  logic         f_ok,
   input  logic         f_acc,
+  // learned table (for register readback)
+  output logic [3:0]   learned_v,
+  output logic [63:0]  learned_loc,        // slot i = [16*i +: 16]
   // decoded record
   output logic         r_valid,
   output logic [7:0]   r_type,
@@ -38,6 +54,7 @@ module itch_decoder (
   output logic [63:0]  r_stock,
   output logic [63:0]  r_match,
   output logic [63:0]  r_seq,
+  output logic [1:0]   r_sym_idx,
   // frame commit marker (after the frame's last record)
   output logic         r_fend,
   output logic         r_fend_ok,
@@ -67,7 +84,26 @@ module itch_decoder (
     if (m_valid && woff < 6'd48) mb[woff] <= m_data;
   end
 
-  // ---------------- 2. decode ----------------
+  // ---------------- 2. early locate filter ----------------
+  logic [15:0] loc_now;
+  logic [3:0]  hit;
+  logic        loc_hit;
+  logic [1:0]  loc_idx;
+  assign loc_now = {mb[1], m_data};
+
+  always_comb begin
+    for (int i = 0; i < 4; i = i + 1)
+      hit[i] = learned_v[i] & cfg_watch_en[i] & (learned_loc[16*i +: 16] == loc_now);
+  end
+
+  always_ff @(posedge clk) begin
+    if (m_valid && woff == 6'd2) begin
+      loc_hit <= |hit;
+      loc_idx <= hit[0] ? 2'd0 : hit[1] ? 2'd1 : hit[2] ? 2'd2 : 2'd3;
+    end
+  end
+
+  // ---------------- 3. decode ----------------
   logic       done_q;
   logic [5:0] len_q;
   logic [63:0] seq_q;
@@ -124,15 +160,22 @@ module itch_decoder (
         exp_len = 6'd19; is_rec = 1'b1;
         d_ref = f_q11;
       end
-      T_U: exp_len = 6'd35;   // Order Replace (TODO: record)
-      T_P: exp_len = 6'd44;   // Trade (TODO: record)
+      T_U: begin        // Order Replace (35)
+        exp_len = 6'd35; is_rec = 1'b1;
+        d_ref = f_q11; d_new = f_q19; d_shares = f_u27; d_price = f_u31;
+      end
+      T_P: begin        // Trade, non-cross (44)
+        exp_len = 6'd44; is_rec = 1'b1;
+        d_ref = f_q11; d_side = f_b19; d_shares = f_u20; d_stock = f_q24;
+        d_price = f_u32; d_match = f_q36;
+      end
       T_R: exp_len = 6'd39;   // Stock Directory
       T_S: exp_len = 6'd12;   // System Event
       default: known = 1'b0;
     endcase
   end
 
-  // ---------------- 3. output ----------------
+  // ---------------- 4. output + learning ----------------
   logic fend_pend, fend_pend_ok;
 
   always_ff @(posedge clk) begin
@@ -142,6 +185,10 @@ module itch_decoder (
     st_len_err <= 1'b0;
     st_rec     <= 1'b0;
 
+    if (rst || cfg_relearn) begin
+      learned_v <= '0;
+    end
+
     if (rst) begin
       fend_pend <= 1'b0;
     end else begin
@@ -150,7 +197,15 @@ module itch_decoder (
         if (known && len_q != exp_len) begin
           st_len_err <= 1'b1;
         end else begin
-          if (is_rec) begin
+          if (mb[0] == T_R) begin
+            for (int i = 0; i < 4; i = i + 1) begin
+              if (cfg_watch_en[i] && f_q11 == cfg_watch_sym[64*i +: 64]) begin
+                learned_v[i]            <= 1'b1;
+                learned_loc[16*i +: 16] <= f_loc;
+              end
+            end
+          end
+          if (is_rec && (cfg_pass_all || loc_hit)) begin
             r_valid   <= 1'b1;
             st_rec    <= 1'b1;
             r_type    <= mb[0];
@@ -164,6 +219,7 @@ module itch_decoder (
             r_stock   <= d_stock;
             r_match   <= d_match;
             r_seq     <= seq_q;
+            r_sym_idx <= cfg_pass_all && !loc_hit ? 2'd0 : loc_idx;
           end
         end
       end
