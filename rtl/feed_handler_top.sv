@@ -5,13 +5,17 @@
 //                                        |
 //                                   rx_cdc (async FIFO, Gray pointers)
 //                                        |
-//        udp_rx -> moldudp64_rx -> itch_decoder -> rec_* ports   [core_clk, 200 MHz]
-//
-//        axil_regs <--AXI4-Lite-- SmartConnect <-- PS (ARM)   (config + counters)
+//        udp_rx -> moldudp64_rx -> itch_decoder -> record stream   [core_clk, 200 MHz]
+//                                                   |          \
+//                                             rec_fifo (BRAM)   rec_* ports (in-fabric consumer)
+//                                                   |
+//                                             axil_regs <--AXI4-Lite-- SmartConnect <-- PS (ARM)
 //
 // No processor touches a packet between the PHY pins and the decoded record.
 // -----------------------------------------------------------------------------
-module feed_handler_top (
+module feed_handler_top #(
+  parameter int REC_AW = 9                    // record queue depth = 2**REC_AW
+) (
   input  logic         core_clk,
   input  logic         core_rst,              // synchronous to core_clk (proc_sys_reset)
 
@@ -137,9 +141,51 @@ module feed_handler_top (
     .r_sym_idx(rec_sym_idx), .r_fend(rec_fend), .r_fend_ok(rec_fend_ok),
     .st_msg(st_msg), .st_len_err(st_len_err), .st_rec(st_rec));
 
+  // ---------------- record queue ----------------
+  logic [31:0]  cyc;
+  always_ff @(posedge core_clk) cyc <= core_rst ? 32'd0 : cyc + 32'd1;
+
+  logic [511:0] rec_word, rec_head;
+  logic         rec_full, rec_head_valid, rec_pop, rec_wr;
+  logic [REC_AW+1:0] rec_count;
+
+  // 16 x 32-bit words, word w at [32*w +: 32]
+  always_comb begin
+    rec_word = '0;
+    if (rec_valid) begin
+      rec_word[32*0  +: 32] = {rec_type, rec_side, rec_locate};
+      rec_word[32*1  +: 32] = {14'd0, rec_sym_idx, rec_ts[47:32]};
+      rec_word[32*2  +: 32] = rec_ts[31:0];
+      rec_word[32*3  +: 32] = rec_ref[63:32];
+      rec_word[32*4  +: 32] = rec_ref[31:0];
+      rec_word[32*5  +: 32] = rec_new_ref[63:32];
+      rec_word[32*6  +: 32] = rec_new_ref[31:0];
+      rec_word[32*7  +: 32] = rec_shares;
+      rec_word[32*8  +: 32] = rec_price;
+      rec_word[32*9  +: 32] = rec_stock[63:32];
+      rec_word[32*10 +: 32] = rec_stock[31:0];
+      rec_word[32*11 +: 32] = rec_match[63:32];
+      rec_word[32*12 +: 32] = rec_match[31:0];
+      rec_word[32*13 +: 32] = rec_seq[63:32];
+      rec_word[32*14 +: 32] = rec_seq[31:0];
+    end else begin
+      // frame commit marker: type 0xFF, bit 0 of the side byte = frame OK
+      rec_word[32*0  +: 32] = {8'hFF, 7'd0, rec_fend_ok, 16'd0};
+    end
+    rec_word[32*15 +: 32] = cyc;
+  end
+
+  // The decoder never raises rec_valid and rec_fend in the same cycle.
+  assign rec_wr = rec_valid | rec_fend;
+
+  rec_fifo #(.W(512), .AW(REC_AW)) u_recq (
+    .clk(core_clk), .rst(core_rst),
+    .wr_en(rec_wr), .wdata(rec_word), .full(rec_full),
+    .pop(rec_pop), .head(rec_head), .head_valid(rec_head_valid), .count(rec_count));
+
   // ---------------- control / status ----------------
   logic [11:0] stat_pulse;
-  assign stat_pulse = {st_hb, 1'b0, st_rec, st_ovf, st_len_err, st_dup,
+  assign stat_pulse = {st_hb, rec_wr & rec_full, st_rec, st_ovf, st_len_err, st_dup,
                        st_gap, st_msg, st_pkt, st_filtered, st_fcs_err, st_frame};
 
   axil_regs u_regs (
@@ -154,5 +200,8 @@ module feed_handler_top (
     .cfg_udp_port(cfg_udp_port), .cfg_watch_en(cfg_watch_en), .cfg_watch_sym(cfg_watch_sym),
     .learned_v(learned_v), .learned_loc(learned_loc), .exp_seq(exp_seq),
     .fifo_level(fifo_level), .stat_pulse(stat_pulse),
-    .rec_head('0), .rec_count('0), .rec_pop());   // record queue: next
+    .rec_head(rec_head), .rec_count(rec_count[10:0]), .rec_pop(rec_pop));
+
+  logic unused;
+  assign unused = rec_head_valid;   // head validity is implied by REC_COUNT != 0
 endmodule
