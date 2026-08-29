@@ -162,3 +162,86 @@ class RecordMonitor:
                 self.markers.append(ok)
                 (self.committed if ok else self.discarded).extend(self.pending)
                 self.pending = []
+
+
+# ---------------------------------------------------------------- env
+async def start(dut, core_ps=CORE_PS):
+    cocotb.start_soon(Clock(dut.rgmii_rxc, RXC_PS, unit="ps").start())
+    dut._core_clk_task = cocotb.start_soon(Clock(dut.core_clk, core_ps, unit="ps").start())
+    dut.core_rst.value = 1
+    axi = AxiLiteMaster(dut, dut.core_clk)
+    src = RgmiiSource(dut)
+    await ClockCycles(dut.core_clk, 20)
+    dut.core_rst.value = 0
+    await ClockCycles(dut.rgmii_rxc, 10)
+    mon = RecordMonitor(dut)
+    return axi, src, mon
+
+
+async def configure(axi, port=net.MCAST_PORT, watch=(), pass_all=False, enable=True):
+    assert await axi.read(regmap.ID) == regmap.ID_VALUE
+    await axi.write(regmap.UDP_PORT, port)
+    for i, s in enumerate(watch):
+        hi, lo = regmap.sym_words(s)
+        await axi.write(regmap.WATCH_HI(i), hi)
+        await axi.write(regmap.WATCH_LO(i), lo)
+    await axi.write(regmap.WATCH_EN, (1 << len(watch)) - 1)
+    await axi.write(regmap.CTRL, (regmap.CTRL_ENABLE if enable else 0)
+                    | (regmap.CTRL_PASS_ALL if pass_all else 0))
+
+
+class Stimulus:
+    """Builds wire frames and keeps the golden model in lock-step."""
+    def __init__(self, src: RgmiiSource, golden: itch.GoldenFeedHandler, ifg=12):
+        self.src, self.golden, self.ifg = src, golden, ifg
+        self.sent_msgs = 0
+        self.wire_bytes = 0
+
+    async def mold(self, seq: int, msgs: list[bytes], *, bad_fcs=False, er_at=None,
+                   dport=net.MCAST_PORT, ip_options=b"", proto=17, mark=False, ifg=None):
+        payload = net.mold_packet(b"TESTSESS01", seq, msgs)
+        l3 = net.udp_ipv4(payload, dport=dport, ip_options=ip_options, proto=proto)
+        frame = net.eth_frame(l3, bad_fcs=bad_fcs)
+        w = net.wire(frame)
+        marks = None
+        if mark:
+            # index of the last byte of each message on the wire
+            off = 8 + 14 + 20 + len(ip_options) + 8 + 20
+            marks = {}
+            for i, m in enumerate(msgs):
+                off += 2 + len(m)
+                marks[seq + i] = off - 1
+        await self.src.send(w, er_at=er_at, marks=marks)
+        await self.src.idle(self.ifg if ifg is None else ifg)
+        ok = not bad_fcs and er_at is None
+        dp, pl = net.parse_udp(frame) if proto == 17 else (None, None)
+        self.golden.frame(pl, dp, ok)
+        self.sent_msgs += len(msgs)
+        self.wire_bytes += len(w) + (self.ifg if ifg is None else ifg)
+
+    async def raw(self, frame_with_fcs: bytes, frame_ok: bool, preamble=True):
+        w = net.wire(frame_with_fcs) if preamble else frame_with_fcs
+        await self.src.send(w)
+        await self.src.idle(self.ifg)
+        dp, pl = net.parse_udp(frame_with_fcs)
+        self.golden.frame(pl, dp, frame_ok)
+
+
+def retune_core_clock(dut, core_ps):
+    """Model fixing a mis-programmed MMCM: stop the core clock, restart at a new period."""
+    dut._core_clk_task.cancel()
+    dut._core_clk_task = cocotb.start_soon(Clock(dut.core_clk, core_ps, unit="ps").start())
+
+
+async def drain(dut, cycles=400):
+    await ClockCycles(dut.core_clk, cycles)
+
+
+def compare(committed, expected, log, label=""):
+    if committed == expected:
+        log.info("%s: %d committed records match the golden model exactly", label, len(expected))
+        return
+    for i, (a, b) in enumerate(zip(committed, expected)):
+        if a != b:
+            raise AssertionError(f"{label}: first mismatch at record {i}\n  hw  : {a}\n  gold: {b}")
+    raise AssertionError(f"{label}: count mismatch hw={len(committed)} gold={len(expected)}")
