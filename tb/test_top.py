@@ -135,3 +135,109 @@ async def test_error_injection(dut):
     check_stats(hw, golden.stats, log)
     assert hw["gaps"] == 1 and hw["dup_msgs"] == 11 and hw["len_err"] == 1
     assert hw["fcs_err"] == 3 and hw["heartbeats"] == 1
+
+
+# ---------------------------------------------------------------------------
+@cocotb.test()
+async def test_line_rate_latency(dut):
+    """Back-to-back frames at 1 Gb/s with minimum IFG; measure wire-to-record latency."""
+    axi, src, mon = await start(dut)
+    await configure(axi, pass_all=True)
+    golden = itch.GoldenFeedHandler(udp_port=net.MCAST_PORT, pass_all=True)
+    stim = Stimulus(src, golden, ifg=12)
+
+    msgs = gen_feed.generate(3000, seed=9)
+    t0 = cocotb.utils.get_sim_time("ns")
+    for seq, batch, _ in net.pack_messages(msgs, first_seq=1, max_payload=1400):
+        await stim.mold(seq, batch, mark=True)
+    t1 = cocotb.utils.get_sim_time("ns")
+    await drain(dut)
+
+    compare(mon.committed, golden.committed, dut._log, "line-rate")
+    hw = await axi.stats()
+    check_stats(hw, golden.stats, dut._log)
+    assert hw["fifo_ovf"] == 0
+    fifo_max = await axi.read(regmap.FIFO_MAX)
+
+    lat = [mon.out_time[s] - src.byte_times[s] for s in src.byte_times if s in mon.out_time]
+    lat_ns = [x / 1000 for x in lat]
+    wire_gbps = stim.wire_bytes * 8 / (t1 - t0)
+    dut._log.info("=== line-rate results ===")
+    dut._log.info("messages %d in %.1f us -> %.2f M msg/s; wire utilisation %.3f Gb/s",
+                  stim.sent_msgs, (t1 - t0) / 1e3, stim.sent_msgs / (t1 - t0) * 1e3, wire_gbps)
+    dut._log.info("CDC FIFO max occupancy %d / 16, overflow events %d", fifo_max, hw["fifo_ovf"])
+    dut._log.info("latency last-byte-on-pins -> record valid (ns): min %.1f  median %.1f  "
+                  "max %.1f  mean %.2f  (n=%d)", min(lat_ns), statistics.median(lat_ns),
+                  max(lat_ns), statistics.mean(lat_ns), len(lat_ns))
+    assert max(lat_ns) < 80
+
+
+# ---------------------------------------------------------------------------
+@cocotb.test()
+async def test_cdc_overflow_recovery(dut):
+    """Mis-clocked core (115 MHz < 125 MB/s wire rate): the rx FIFO must overflow,
+    every damaged frame must be dropped or flagged (never committed), and once the
+    clock is fixed the pipeline must resynchronise with no reset."""
+    axi, src, mon = await start(dut, core_ps=8696)
+    await configure(axi, pass_all=True)
+    golden = itch.GoldenFeedHandler(udp_port=net.MCAST_PORT, pass_all=True)
+    stim = Stimulus(src, golden, ifg=12)
+    log = dut._log
+
+    # Phase 1: small and large frames at line rate into a 60 MHz core.
+    flow = gen_feed.generate(1200, seed=3)
+    rng = random.Random(3)
+    seq = 1
+    while flow:
+        n = rng.choice([1, 2, 30])
+        batch, flow = flow[:n], flow[n:]
+        await stim.mold(seq, batch)
+        seq += len(batch)
+    await drain(dut, 3000)
+    hw1 = await axi.stats()
+    good = set(golden.committed)
+    assert hw1["fifo_ovf"] > 0, "expected overflow at 115 MHz"
+    assert all(r in good for r in mon.committed), "a damaged frame produced a committed record"
+    assert mon.committed and mon.discarded, "expected both surviving and flagged frames"
+    log.info("phase 1 (115 MHz core): overflow events %d of %d frames; committed %d of %d golden "
+             "records, all genuine; %d speculative records discarded by BAD markers",
+             hw1["fifo_ovf"], hw1["frames"] + 0, len(mon.committed), len(golden.committed),
+             len(mon.discarded))
+
+    # Phase 2: clock fixed, no reset. Output must be exact again.
+    retune_core_clock(dut, CORE_PS)
+    await drain(dut, 100)
+    n_before = len(mon.committed)
+    golden2 = itch.GoldenFeedHandler(udp_port=net.MCAST_PORT, pass_all=True)
+    stim2 = Stimulus(src, golden2, ifg=12)
+    for s, batch, _ in net.pack_messages(gen_feed.generate(1500, seed=4), first_seq=100_000):
+        await stim2.mold(s, batch)
+    await drain(dut)
+    compare(mon.committed[n_before:], golden2.committed, log, "recovery")
+    hw2 = await axi.stats()
+    assert hw2["fifo_ovf"] == hw1["fifo_ovf"], "overflow after the clock was fixed"
+    assert hw2["gaps"] == hw1["gaps"] + 1
+
+
+# ---------------------------------------------------------------------------
+@cocotb.test()
+async def test_fifo_depth_margin(dut):
+    """Elastic-buffer sizing: a core clock only slightly slower than the wire
+    (124.5 MHz vs 125 MHz) must survive back-to-back 1,500-byte frames in 16 entries.
+    Required depth ~ frame_bytes * (1 - f_core / f_rx) + synchroniser latency."""
+    axi, src, mon = await start(dut, core_ps=8032)
+    await configure(axi, pass_all=True)
+    golden = itch.GoldenFeedHandler(udp_port=net.MCAST_PORT, pass_all=True)
+    stim = Stimulus(src, golden, ifg=12)
+    for s, batch, _ in net.pack_messages(gen_feed.generate(1200, seed=8), first_seq=1,
+                                         max_payload=1472):
+        await stim.mold(s, batch)
+    await drain(dut)
+    compare(mon.committed, golden.committed, dut._log, "124.5 MHz core")
+    hw = await axi.stats()
+    fifo_max = await axi.read(regmap.FIFO_MAX)
+    deficit = 1514 * (1 - 124.5 / 125)
+    dut._log.info("core 124.5 MHz: max FIFO occupancy %d / 16 (predicted backlog %.1f bytes "
+                  "+ ~3 in the synchronisers), overflow events %d", fifo_max, deficit,
+                  hw["fifo_ovf"])
+    assert hw["fifo_ovf"] == 0
