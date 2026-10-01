@@ -241,3 +241,85 @@ async def test_fifo_depth_margin(dut):
                   "+ ~3 in the synchronisers), overflow events %d", fifo_max, deficit,
                   hw["fifo_ovf"])
     assert hw["fifo_ovf"] == 0
+
+
+# ---------------------------------------------------------------------------
+@cocotb.test()
+async def test_latency_breakdown(dut):
+    """Time one message's last byte through every pipeline stage."""
+    axi, src, mon = await start(dut)
+    await configure(axi, pass_all=True)
+    golden = itch.GoldenFeedHandler(udp_port=net.MCAST_PORT, pass_all=True)
+    stim = Stimulus(src, golden)
+    # warm-up frame so the sequence state is established
+    flow = gen_feed.generate(20, seed=2)
+    await stim.mold(1, flow[10:12])
+    msg = itch.add_order(34_200_000_000_123, 100, 424242, b"B", 100, "AAPL", 0x0012345A)
+    last = msg[-1]
+    t = {}
+
+    async def watch(name, clk, cond):
+        while name not in t:
+            await RisingEdge(clk)
+            await ReadOnly()
+            if 3 in src.byte_times and cond():
+                t[name] = get_sim_time("ps")
+
+    u = dut
+    probes = [
+        ("1 IDDR + GMII register",   u.rgmii_rxc, lambda: int(u.u_rgmii.gmii_rx_dv.value) and int(u.u_rgmii.gmii_rxd.value) == last),
+        ("2 MAC out (1-byte hold)",  u.rgmii_rxc, lambda: int(u.u_mac.m_valid.value) and int(u.u_mac.m_data.value) == last),
+        ("3 written into CDC FIFO",  u.rgmii_rxc, lambda: "2 MAC out (1-byte hold)" in t),
+        ("4 visible in core domain", u.core_clk,  lambda: int(u.u_cdc.s_valid.value) and int(u.u_cdc.s_data.value) == last),
+        ("5 UDP payload out",        u.core_clk,  lambda: int(u.u_udp.p_valid.value) and int(u.u_udp.p_last.value)),
+        ("6 MoldUDP64 msg out",      u.core_clk,  lambda: int(u.u_mold.m_valid.value) and int(u.u_mold.m_last.value)),
+        ("7 ITCH decode stage",      u.core_clk,  lambda: int(u.u_itch.done_q.value)),
+        ("8 record valid",           u.core_clk,  lambda: int(u.rec_valid.value) and int(u.rec_ref.value) == 424242),
+    ]
+    tasks = [cocotb.start_soon(watch(n, c, f)) for n, c, f in probes]
+    await stim.mold(3, [msg], mark=True)
+    await drain(dut, 200)
+    t0 = src.byte_times[3]
+    dut._log.info("=== latency of the last byte of one Add Order ===")
+    dut._log.info("  %-28s %6.1f ns", "0 captured at the pins", 0.0)
+    prev = t0
+    for name, _, _ in probes:
+        if name in t:
+            dut._log.info("  %-28s %6.1f ns  (+%.1f)", name, (t[name] - t0) / 1000, (t[name] - prev) / 1000)
+            prev = t[name]
+    for tk in tasks:
+        tk.cancel()
+    assert "8 record valid" in t
+
+
+# ---------------------------------------------------------------------------
+@cocotb.test()
+async def test_axi_record_readback(dut):
+    """Drain records through AXI4-Lite exactly as the ARM does and compare."""
+    axi, src, mon = await start(dut)
+    await configure(axi, watch=["MSFT", "AMZN"])
+    golden = itch.GoldenFeedHandler(udp_port=net.MCAST_PORT, watch=["MSFT", "AMZN"])
+    stim = Stimulus(src, golden)
+    msgs = gen_feed.generate(700, seed=21)
+    for seq, batch, _ in net.pack_messages(msgs, first_seq=1, max_payload=600):
+        await stim.mold(seq, batch)
+    await stim.mold(9_999, flow := gen_feed.generate(40, seed=22)[9:], bad_fcs=True)
+    await drain(dut)
+
+    n = await axi.read(regmap.REC_COUNT)
+    got, pending, markers = [], [], 0
+    for _ in range(n):
+        words = [await axi.read(regmap.REC_W0 + 4 * w) for w in range(16)]
+        await axi.write(regmap.REC_POP, 1)
+        kind, val, _cyc = regmap.unpack_record(words)
+        if kind == "rec":
+            pending.append(val)
+        else:
+            markers += 1
+            if val:
+                got.extend(pending)
+            pending = []
+    assert await axi.read(regmap.REC_COUNT) == 0
+    dut._log.info("read %d queue entries over AXI (%d markers)", n, markers)
+    compare(got, golden.committed, dut._log, "axi-readback")
+    assert (await axi.stats())["rec_drop"] == 0
