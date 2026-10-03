@@ -1,0 +1,6 @@
+# Open-source 7-series synthesis for a resource/logic-depth ESTIMATE only.
+# Vivado is the source of truth for the real build (see vivado/build.tcl).
+read_verilog -sv -DSYNTHESIS ../rtl/cdc_prims.sv ../rtl/async_fifo.sv ../rtl/rgmii_rx.sv ../rtl/eth_mac_rx.sv ../rtl/rx_cdc.sv ../rtl/udp_rx.sv ../rtl/moldudp64_rx.sv ../rtl/itch_decoder.sv ../rtl/rec_fifo.sv ../rtl/axil_regs.sv ../rtl/feed_handler_top.sv
+synth_xilinx -family xc7 -top feed_handler_top -flatten
+tee -o util.txt stat
+ltp -noff
