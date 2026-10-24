@@ -1,0 +1,109 @@
+rm -f results.xml
+mkdir -p sim_build_top
+/usr/bin/iverilog -o sim_build_top/sim.vvp -s feed_handler_top -g2012 -g2012 -f sim_build_top/cmds.f  /home/brahin/itch-feed-handler/rtl/cdc_prims.sv /home/brahin/itch-feed-handler/rtl/async_fifo.sv /home/brahin/itch-feed-handler/rtl/rgmii_rx.sv /home/brahin/itch-feed-handler/rtl/eth_mac_rx.sv /home/brahin/itch-feed-handler/rtl/rx_cdc.sv /home/brahin/itch-feed-handler/rtl/udp_rx.sv /home/brahin/itch-feed-handler/rtl/moldudp64_rx.sv /home/brahin/itch-feed-handler/rtl/itch_decoder.sv /home/brahin/itch-feed-handler/rtl/rec_fifo.sv /home/brahin/itch-feed-handler/rtl/axil_regs.sv /home/brahin/itch-feed-handler/rtl/feed_handler_top.sv
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/axil_regs.sv:134: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+/home/brahin/itch-feed-handler/rtl/feed_handler_top.sv:153: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+rm -f results.xml
+COCOTB_TEST_MODULES=test_top COCOTB_TESTCASE=  COCOTB_TOPLEVEL=feed_handler_top TOPLEVEL_LANG=verilog COCOTB_RANDOM_SEED=1      \
+	 /usr/bin/vvp -m /usr/local/lib/python3.13/dist-packages/cocotb/libs/libcocotbvpi_icarus.so   sim_build_top/sim.vvp   
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:242  in gpi_load_users                  Loaded entry library: '/usr/local/lib/libpython3.13.so.1.0'
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:233  in gpi_load_users                  Running entry func 'initialize' from loaded library '/usr/local/lib/python3.13/dist-packages/cocotb/simulator.cpython-313-x86_64-linux-gnu.so'
+     -.--ns INFO     pygpi                              ..ib/pygpi/embed.cpp:114  in initialize                      Using Python 3.13.8 interpreter at /usr/local/bin/python3.13
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:74   in gpi_print_registered_impl       GPI: VPI support registered
+     0.00ns INFO     cocotb.initialize                  Seeding Python random module with 1
+     0.00ns INFO     cocotb.initialize                  Initialized cocotb v2.1.0 from /usr/local/lib/python3.13/site-packages/cocotb
+     0.00ns INFO     cocotb.initialize                  Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb.regression                  Running tests
+     0.00ns INFO     cocotb.regression                  running test_top.test_watchlist_end_to_end (1/7)
+                                                            3,000 messages across 8 symbols; hardware learns 4 locates from 'R' and filters.
+1000365.26ns INFO     cocotb.feed_handler_top            watchlist: 1516 committed records match the golden model exactly
+1000544.90ns INFO     cocotb.feed_handler_top            counters: {'frames': 246, 'fcs_err': 0, 'filtered': 0, 'mold_pkts': 246, 'msgs': 3000, 'gaps': 0, 'dup_msgs': 0, 'len_err': 0, 'fifo_ovf': 0, 'records': 1516, 'rec_drop': 1249, 'heartbeats': 0}
+1000634.72ns INFO     cocotb.feed_handler_top            record types covered: ACDEFPUX
+1000634.72ns INFO     cocotb.regression                  test_top.test_watchlist_end_to_end passed
+1000634.72ns INFO     cocotb.regression                  running test_top.test_error_injection (2/7)
+                                                            Bad FCS, RX_ER, gaps, duplicates, overlaps, filters, IP options, bad lengths.
+1052161.46ns INFO     cocotb.feed_handler_top            errors: 79 committed records match the golden model exactly
+1052161.46ns INFO     cocotb.feed_handler_top            discarded speculative records from bad frames: 16
+1052341.10ns INFO     cocotb.feed_handler_top            counters: {'frames': 18, 'fcs_err': 3, 'filtered': 3, 'mold_pkts': 13, 'msgs': 107, 'gaps': 1, 'dup_msgs': 11, 'len_err': 1, 'fifo_ovf': 0, 'records': 95, 'rec_drop': 0, 'heartbeats': 1}
+1052341.10ns INFO     cocotb.regression                  test_top.test_error_injection passed
+1052341.10ns INFO     cocotb.regression                  running test_top.test_line_rate_latency (3/7)
+                                                            Back-to-back frames at 1 Gb/s with minimum IFG; measure wire-to-record latency.
+1938555.12ns INFO     cocotb.feed_handler_top            line-rate: 2991 committed records match the golden model exactly
+1938734.76ns INFO     cocotb.feed_handler_top            counters: {'frames': 77, 'fcs_err': 0, 'filtered': 0, 'mold_pkts': 77, 'msgs': 3000, 'gaps': 0, 'dup_msgs': 0, 'len_err': 0, 'fifo_ovf': 0, 'records': 2991, 'rec_drop': 2555, 'heartbeats': 0}
+1938749.73ns INFO     cocotb.feed_handler_top            === line-rate results ===
+1938749.73ns INFO     cocotb.feed_handler_top            messages 3000 in 884.0 us -> 3.39 M msg/s; wire utilisation 0.999 Gb/s
+1938749.73ns INFO     cocotb.feed_handler_top            CDC FIFO max occupancy 2 / 16, overflow events 0
+1938749.73ns INFO     cocotb.feed_handler_top            latency last-byte-on-pins -> record valid (ns): min 70.9  median 73.5  max 75.9  mean 73.45  (n=2991)
+1938749.73ns INFO     cocotb.regression                  test_top.test_line_rate_latency passed
+1938749.73ns INFO     cocotb.regression                  running test_top.test_cdc_overflow_recovery (4/7)
+                                                            Mis-clocked core (115 MHz < 125 MB/s wire rate): the rx FIFO must overflow,
+2357340.39ns INFO     cocotb.feed_handler_top            phase 1 (115 MHz core): overflow events 61 of 88 frames; committed 30 of 1191 golden records, all genuine; 74 speculative records discarded by BAD markers
+2799499.30ns INFO     cocotb.feed_handler_top            recovery: 1491 committed records match the golden model exactly
+2799678.94ns INFO     cocotb.regression                  test_top.test_cdc_overflow_recovery passed
+2799678.94ns INFO     cocotb.regression                  running test_top.test_fifo_depth_margin (5/7)
+                                                            Elastic-buffer sizing: a core clock only slightly slower than the wire
+3154845.95ns INFO     cocotb.feed_handler_top            124.5 MHz core: 1191 committed records match the golden model exactly
+3155159.20ns INFO     cocotb.feed_handler_top            core 124.5 MHz: max FIFO occupancy 9 / 16 (predicted backlog 6.1 bytes + ~3 in the synchronisers), overflow events 0
+3155159.20ns INFO     cocotb.regression                  test_top.test_fifo_depth_margin passed
+3155159.20ns INFO     cocotb.regression                  running test_top.test_latency_breakdown (6/7)
+                                                            Time one message's last byte through every pipeline stage.
+3158647.21ns INFO     cocotb.feed_handler_top            === latency of the last byte of one Add Order ===
+3158647.21ns INFO     cocotb.feed_handler_top              0 captured at the pins          0.0 ns
+3158647.21ns INFO     cocotb.feed_handler_top              1 IDDR + GMII register         12.0 ns  (+12.0)
+3158647.21ns INFO     cocotb.feed_handler_top              2 MAC out (1-byte hold)        28.0 ns  (+16.0)
+3158647.21ns INFO     cocotb.feed_handler_top              3 written into CDC FIFO        28.0 ns  (+0.0)
+3158647.21ns INFO     cocotb.feed_handler_top              4 visible in core domain       51.2 ns  (+23.2)
+3158647.21ns INFO     cocotb.feed_handler_top              5 UDP payload out              56.1 ns  (+5.0)
+3158647.21ns INFO     cocotb.feed_handler_top              6 MoldUDP64 msg out            61.1 ns  (+5.0)
+3158647.21ns INFO     cocotb.feed_handler_top              7 ITCH decode stage            66.1 ns  (+5.0)
+3158647.21ns INFO     cocotb.feed_handler_top              8 record valid                 71.1 ns  (+5.0)
+3158647.21ns INFO     cocotb.regression                  test_top.test_latency_breakdown passed
+3158647.21ns INFO     cocotb.regression                  running test_top.test_axi_record_readback (7/7)
+                                                            Drain records through AXI4-Lite exactly as the ARM does and compare.
+3448486.37ns INFO     cocotb.feed_handler_top            read 211 queue entries over AXI (45 markers)
+3448486.37ns INFO     cocotb.feed_handler_top            axi-readback: 162 committed records match the golden model exactly
+3448666.01ns INFO     cocotb.regression                  test_top.test_axi_record_readback passed
+3448666.01ns INFO     cocotb.regression                  *********************************************************************************************
+                                                        ** TEST                                 STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        *********************************************************************************************
+                                                        ** test_top.test_watchlist_end_to_end    PASS     1000634.72          12.59      79507.23  **
+                                                        ** test_top.test_error_injection         PASS       51706.38           0.65      79914.14  **
+                                                        ** test_top.test_line_rate_latency       PASS      886408.63          11.57      76579.75  **
+                                                        ** test_top.test_cdc_overflow_recovery   PASS      860929.21           9.31      92488.79  **
+                                                        ** test_top.test_fifo_depth_margin       PASS      355480.26           3.82      93147.35  **
+                                                        ** test_top.test_latency_breakdown       PASS        3488.01           0.04      83293.85  **
+                                                        ** test_top.test_axi_record_readback     PASS      290018.80           3.49      83209.13  **
+                                                        *********************************************************************************************
+                                                        ** TESTS=7 PASS=7 FAIL=0 SKIP=0                   3448666.01          41.46      83177.84  **
+                                                        *********************************************************************************************

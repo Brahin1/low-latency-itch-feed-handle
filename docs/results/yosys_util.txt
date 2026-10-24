@@ -1,0 +1,32 @@
+
+13. Printing statistics.
+
+=== feed_handler_top ===
+
+   Number of wires:               1673
+   Number of wire bits:          13620
+   Number of public wires:         422
+   Number of public wire bits:    7754
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               6058
+     BUFG                            2
+     CARRY4                        203
+     FDPE                            2
+     FDRE                         2426
+     FDSE                           33
+     IBUF                           73
+     IDDR                            5
+     INV                            97
+     LUT2                          952
+     LUT3                          174
+     LUT4                          370
+     LUT5                          223
+     LUT6                          898
+     MUXF7                          56
+     MUXF8                          16
+     OBUF                          511
+     RAM32M                          2
+     RAMB18E1                       15
+

@@ -1,0 +1,35 @@
+wclk 4000 ps, rclk 9970 ps: 3000 words OK | cycles full=6004 empty=2 | max level 16
+wclk 8000 ps, rclk 4990 ps: 3000 words OK | cycles full=0 empty=3539 | max level 4
+wclk 8000 ps, rclk 8002 ps: 3000 words OK | cycles full=17 empty=6 | max level 13
+watchlist: 1516 committed records match the golden model exactly
+counters: {'frames': 246, 'fcs_err': 0, 'filtered': 0, 'mold_pkts': 246, 'msgs': 3000, 'gaps': 0, 'dup_msgs': 0, 'len_err': 0, 'fifo_ovf': 0, 'records': 1516, 'rec_drop': 1249, 'heartbeats': 0}
+record types covered: ACDEFPUX
+errors: 79 committed records match the golden model exactly
+discarded speculative records from bad frames: 16
+counters: {'frames': 18, 'fcs_err': 3, 'filtered': 3, 'mold_pkts': 13, 'msgs': 107, 'gaps': 1, 'dup_msgs': 11, 'len_err': 1, 'fifo_ovf': 0, 'records': 95, 'rec_drop': 0, 'heartbeats': 1}
+running test_top.test_line_rate_latency (3/7)
+line-rate: 2991 committed records match the golden model exactly
+counters: {'frames': 77, 'fcs_err': 0, 'filtered': 0, 'mold_pkts': 77, 'msgs': 3000, 'gaps': 0, 'dup_msgs': 0, 'len_err': 0, 'fifo_ovf': 0, 'records': 2991, 'rec_drop': 2555, 'heartbeats': 0}
+=== line-rate results ===
+messages 3000 in 884.0 us -> 3.39 M msg/s; wire utilisation 0.999 Gb/s
+CDC FIFO max occupancy 2 / 16, overflow events 0
+latency last-byte-on-pins -> record valid (ns): min 70.9  median 73.5  max 75.9  mean 73.45  (n=2991)
+test_top.test_line_rate_latency passed
+phase 1 (115 MHz core): overflow events 61 of 88 frames; committed 30 of 1191 golden records, all genuine; 74 speculative records discarded by BAD markers
+recovery: 1491 committed records match the golden model exactly
+124.5 MHz core: 1191 committed records match the golden model exactly
+core 124.5 MHz: max FIFO occupancy 9 / 16 (predicted backlog 6.1 bytes + ~3 in the synchronisers), overflow events 0
+running test_top.test_latency_breakdown (6/7)
+=== latency of the last byte of one Add Order ===
+0 captured at the pins          0.0 ns
+1 IDDR + GMII register         12.0 ns  (+12.0)
+2 MAC out (1-byte hold)        28.0 ns  (+16.0)
+3 written into CDC FIFO        28.0 ns  (+0.0)
+4 visible in core domain       51.2 ns  (+23.2)
+5 UDP payload out              56.1 ns  (+5.0)
+6 MoldUDP64 msg out            61.1 ns  (+5.0)
+7 ITCH decode stage            66.1 ns  (+5.0)
+8 record valid                 71.1 ns  (+5.0)
+test_top.test_latency_breakdown passed
+read 211 queue entries over AXI (45 markers)
+axi-readback: 162 committed records match the golden model exactly

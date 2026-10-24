@@ -1,0 +1,32 @@
+rm -f results.xml
+mkdir -p sim_build_fifo
+/usr/bin/iverilog -o sim_build_fifo/sim.vvp -s async_fifo -g2012 -g2012 -f sim_build_fifo/cmds.f  /home/brahin/itch-feed-handler/rtl/cdc_prims.sv /home/brahin/itch-feed-handler/rtl/async_fifo.sv
+rm -f results.xml
+COCOTB_TEST_MODULES=test_async_fifo COCOTB_TESTCASE=  COCOTB_TOPLEVEL=async_fifo TOPLEVEL_LANG=verilog COCOTB_RANDOM_SEED=1      \
+	 /usr/bin/vvp -m /usr/local/lib/python3.13/dist-packages/cocotb/libs/libcocotbvpi_icarus.so   sim_build_fifo/sim.vvp   
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:242  in gpi_load_users                  Loaded entry library: '/usr/local/lib/libpython3.13.so.1.0'
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:233  in gpi_load_users                  Running entry func 'initialize' from loaded library '/usr/local/lib/python3.13/dist-packages/cocotb/simulator.cpython-313-x86_64-linux-gnu.so'
+     -.--ns INFO     pygpi                              ..ib/pygpi/embed.cpp:114  in initialize                      Using Python 3.13.8 interpreter at /usr/local/bin/python3.13
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:74   in gpi_print_registered_impl       GPI: VPI support registered
+     0.00ns INFO     cocotb.initialize                  Seeding Python random module with 1
+     0.00ns INFO     cocotb.initialize                  Initialized cocotb v2.1.0 from /usr/local/lib/python3.13/site-packages/cocotb
+     0.00ns INFO     cocotb.initialize                  Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb.regression                  Running tests
+     0.00ns INFO     cocotb.regression                  running test_async_fifo.fifo_fast_writer (1/3)
+ 37626.78ns INFO     cocotb.async_fifo                  wclk 4000 ps, rclk 9970 ps: 3000 words OK | cycles full=6004 empty=2 | max level 16
+ 37626.78ns INFO     cocotb.regression                  test_async_fifo.fifo_fast_writer passed
+ 37626.78ns INFO     cocotb.regression                  running test_async_fifo.fifo_slow_writer (2/3)
+ 71943.01ns INFO     cocotb.async_fifo                  wclk 8000 ps, rclk 4990 ps: 3000 words OK | cycles full=0 empty=3539 | max level 4
+ 71943.01ns INFO     cocotb.regression                  test_async_fifo.fifo_slow_writer passed
+ 71943.01ns INFO     cocotb.regression                  running test_async_fifo.fifo_near_equal (3/3)
+ 97317.36ns INFO     cocotb.async_fifo                  wclk 8000 ps, rclk 8002 ps: 3000 words OK | cycles full=17 empty=6 | max level 13
+ 97317.36ns INFO     cocotb.regression                  test_async_fifo.fifo_near_equal passed
+ 97317.36ns INFO     cocotb.regression                  ******************************************************************************************
+                                                        ** TEST                              STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        ******************************************************************************************
+                                                        ** test_async_fifo.fifo_fast_writer   PASS       37626.78           0.43      88445.74  **
+                                                        ** test_async_fifo.fifo_slow_writer   PASS       34316.23           0.37      92392.12  **
+                                                        ** test_async_fifo.fifo_near_equal    PASS       25374.34           0.22     113366.66  **
+                                                        ******************************************************************************************
+                                                        ** TESTS=3 PASS=3 FAIL=0 SKIP=0                  97317.36           1.02      95265.50  **
+                                                        ******************************************************************************************
